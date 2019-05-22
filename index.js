@@ -1,34 +1,27 @@
 require('dotenv').config()
 const axios = require('axios')
-const express = require('express')
+const app = require('express')()
 
-const TARGET_ENV = 'https://www.clover.com' // Production
-// const TARGET_ENV = 'https://sandbox.dev.clover.com' // Sandbox
+// ⚙️ Configuration
+const { APP_ID, APP_SECRET } = process.env
+const PORT = process.env.PORT || 8000
+const TARGET_ENV = 'https://sandbox.dev.clover.com' // Sandbox
+// const TARGET_ENV = 'https://www.clover.com' // Production
 
-const { PROD_APP_ID, PROD_APP_SECRET, SANDBOX_APP_ID, SANDBOX_APP_SECRET } = process.env
+// 🤖 App Endpoint (http://localhost:PORT/)
+app.get('/', (_, res) => res.redirect(`${TARGET_ENV}/oauth/authorize?client_id=${APP_ID}`))
 
-const app = express()
-
-app.get('/', (req, res) => authenticate(req, res))
-
-const authenticate = async (req, res) => {
-  const URL = `${TARGET_ENV}/oauth/authorize?client_id=${PROD_APP_ID}&state=testing123`
-
-  req.query.code ? await requestAPIToken(res, req.query) : await res.redirect(URL)
-}
-
-const requestAPIToken = async (res, code) => {
-  const URL = `${TARGET_ENV}/oauth/token?client_id=${PROD_APP_ID}&client_secret=${PROD_APP_SECRET}&code=${code}`
-
-  const response = await axios
-    .get(URL)
+// 🤖 App Redirect Endpoint (http://localhost:PORT/oauth_callback/)
+app.get('/oauth_callback', async (req, res) => {
+  // 🗝 Fetch the access token
+  const { data } = await axios
+    .get(`${TARGET_ENV}/oauth/token?client_id=${APP_ID}&client_secret=${APP_SECRET}&code=${req.query.code}`)
     .catch(err => res.send(err.message))
   
-  if (response && response.data) {
-    res.send(response.data)
+  if (data && data.access_token) {
+    console.log('ACCESS TOKEN: ' + data.access_token)
+    res.send(data)
   }
-}
-
-const PORT = process.env.PORT || 8000
+})
 
 app.listen(PORT, () => console.log(`🤖 Express server listening on port ${PORT}`))
